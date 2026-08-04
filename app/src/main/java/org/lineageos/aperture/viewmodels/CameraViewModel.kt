@@ -262,11 +262,19 @@ class CameraViewModel(application: Application) : ApertureViewModel(application)
      */
     val lenses = combine(
         cameraRepository.cameras,
-        camera,
-        cameraMode,
-    ) { cameras, camera, cameraMode ->
+        cameraConfiguration,
+    ) { cameras, cameraConfiguration ->
+        val camera = cameraConfiguration.camera
+        val restrictMetroidVideoLenses = Build.DEVICE == "metroid" &&
+                camera.cameraFacing == CameraFacing.BACK &&
+                cameraConfiguration is CameraConfiguration.Video &&
+                (cameraConfiguration.videoQuality == Quality.UHD ||
+                        cameraConfiguration.videoFrameRate == FrameRate.FPS_60)
+
         camera to cameras.filter {
-            it.cameraFacing == camera.cameraFacing && it.supportsCameraMode(cameraMode)
+            (!restrictMetroidVideoLenses || it == camera) &&
+                    it.cameraFacing == camera.cameraFacing &&
+                    it.supportsCameraMode(cameraConfiguration.cameraMode)
         }
     }
         .flowOn(Dispatchers.IO)
@@ -1279,7 +1287,8 @@ class CameraViewModel(application: Application) : ApertureViewModel(application)
             }
 
             val camera = cameraConfiguration.camera.takeIf {
-                it.supportsCameraMode(cameraMode)
+                (Build.DEVICE != "metroid" || it.cameraFacing != CameraFacing.BACK) &&
+                        it.supportsCameraMode(cameraMode)
             } ?: getSuitableCamera(
                 cameraMode,
                 cameraConfiguration.camera.cameraFacing,
