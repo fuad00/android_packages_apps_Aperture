@@ -7,6 +7,7 @@ package org.lineageos.aperture.repositories
 
 import android.Manifest
 import android.content.Context
+import android.os.Build
 import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.CameraInfo
@@ -64,6 +65,8 @@ class CameraRepository(
 
     val mainBackCamera by lazy {
         internalCameras.firstOrNull { camera ->
+            Build.DEVICE == "metroid" && camera.cameraId == "4"
+        } ?: internalCameras.firstOrNull { camera ->
             camera.cameraFacing == CameraFacing.BACK
         }
     }
@@ -72,6 +75,10 @@ class CameraRepository(
         internalCameras.firstOrNull { camera ->
             camera.cameraFacing == CameraFacing.FRONT
         }
+    }
+
+    fun getCamera(cameraId: String) = internalCameras.firstOrNull {
+        it.cameraId == cameraId
     }
 
     /**

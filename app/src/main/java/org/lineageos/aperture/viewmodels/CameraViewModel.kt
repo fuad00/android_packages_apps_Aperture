@@ -78,6 +78,7 @@ import org.lineageos.aperture.models.DistortionCorrectionMode
 import org.lineageos.aperture.models.EdgeMode
 import org.lineageos.aperture.models.Event
 import org.lineageos.aperture.models.FlashMode
+import org.lineageos.aperture.models.FrameRate
 import org.lineageos.aperture.models.GridMode
 import org.lineageos.aperture.models.HardwareKey
 import org.lineageos.aperture.models.HotPixelMode
@@ -1449,10 +1450,13 @@ class CameraViewModel(application: Application) : ApertureViewModel(application)
 
             preferencesRepository.videoQuality.value = videoQuality
 
-            cameraConfiguration.copy(
-                videoQuality = videoQuality,
-                videoFrameRate = videoFrameRate,
-                videoDynamicRange = videoDynamicRange,
+            createInitialCameraConfiguration(
+                camera = getMetroidVideoCamera(
+                    cameraConfiguration.camera.cameraFacing,
+                    videoQuality,
+                    videoFrameRate,
+                ) ?: cameraConfiguration.camera,
+                cameraMode = CameraMode.VIDEO,
             )
         }
 
@@ -1473,8 +1477,13 @@ class CameraViewModel(application: Application) : ApertureViewModel(application)
 
             preferencesRepository.videoFrameRate.value = videoFrameRate
 
-            cameraConfiguration.copy(
-                videoFrameRate = videoFrameRate,
+            createInitialCameraConfiguration(
+                camera = getMetroidVideoCamera(
+                    cameraConfiguration.camera.cameraFacing,
+                    cameraConfiguration.videoQuality,
+                    videoFrameRate,
+                ) ?: cameraConfiguration.camera,
+                cameraMode = CameraMode.VIDEO,
             )
         }
 
@@ -1543,12 +1552,15 @@ class CameraViewModel(application: Application) : ApertureViewModel(application)
      * @param zoomRatio The zoom ratio to apply
      */
     fun smoothZoom(zoomRatio: Float) {
+        val zoomState = zoomState.value ?: run {
+            cameraController.setZoomRatio(zoomRatio)
+            return
+        }
+
         val acquired = zoomGestureMutex.tryLock()
         if (!acquired) {
             return
         }
-
-        val zoomState = zoomState.value ?: return
 
         ValueAnimator.ofFloat(
             zoomState.zoomRatio,
@@ -1631,6 +1643,23 @@ class CameraViewModel(application: Application) : ApertureViewModel(application)
         cameraMode: CameraMode,
         cameraFacing: CameraFacing,
     ): Camera? {
+        if (cameraMode == CameraMode.VIDEO) {
+            getMetroidVideoCamera(
+                cameraFacing,
+                preferencesRepository.videoQuality.value,
+                preferencesRepository.videoFrameRate.value,
+            )?.takeIf { it.supportsCameraMode(cameraMode) }?.let { return it }
+        }
+
+        val preferredCamera = when (cameraFacing) {
+            CameraFacing.BACK -> cameraRepository.mainBackCamera
+            CameraFacing.FRONT -> cameraRepository.mainFrontCamera
+            else -> null
+        }
+        if (preferredCamera?.supportsCameraMode(cameraMode) == true) {
+            return preferredCamera
+        }
+
         val compatibleCameras = cameraRepository.cameras.first()
             .filter { camera ->
                 camera.supportsCameraMode(cameraMode)
@@ -1639,6 +1668,25 @@ class CameraViewModel(application: Application) : ApertureViewModel(application)
         return compatibleCameras.firstOrNull { camera ->
             camera.cameraFacing == cameraFacing
         } ?: compatibleCameras.firstOrNull()
+    }
+
+    private fun getMetroidVideoCamera(
+        cameraFacing: CameraFacing,
+        videoQuality: Quality,
+        videoFrameRate: FrameRate?,
+    ): Camera? {
+        if (Build.DEVICE != "metroid" || cameraFacing != CameraFacing.BACK) {
+            return null
+        }
+
+        val cameraId = if (
+            videoQuality == Quality.UHD || videoFrameRate == FrameRate.FPS_60
+        ) {
+            "0"
+        } else {
+            "4"
+        }
+        return cameraRepository.getCamera(cameraId)
     }
 
     @androidx.annotation.OptIn(ExperimentalZeroShutterLag::class)
@@ -1723,7 +1771,8 @@ class CameraViewModel(application: Application) : ApertureViewModel(application)
                 videoFrameRate = videoFrameRate,
                 videoDynamicRange = videoDynamicRange,
                 videoMirrorMode = preferencesRepository.videoMirrorMode.value,
-                enableVideoStabilization = preferencesRepository.videoStabilization.value,
+                enableVideoStabilization = Build.DEVICE != "metroid" &&
+                        preferencesRepository.videoStabilization.value,
             )
         }
 
