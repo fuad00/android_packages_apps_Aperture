@@ -6,6 +6,7 @@
 package org.lineageos.aperture
 
 import android.hardware.input.InputManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.KeyCharacterMap
@@ -159,6 +160,9 @@ class SettingsActivity : AppCompatActivity(R.layout.activity_settings) {
         }
         private val saveLocation by lazy { findPreference<SwitchPreference>("save_location") }
         private val shutterSound by lazy { findPreference<SwitchPreference>("shutter_sound") }
+        private val videoStabilization by lazy {
+            findPreference<SwitchPreference>("video_stabilization")
+        }
 
         private val photoCaptureModePreferenceChangeListener =
             Preference.OnPreferenceChangeListener { preference, newValue ->
@@ -206,6 +210,7 @@ class SettingsActivity : AppCompatActivity(R.layout.activity_settings) {
                     }
             }
             shutterSound?.isVisible = !CameraSoundsUtils.mustPlaySounds
+            videoStabilization?.isVisible = Build.DEVICE != "metroid"
 
             // Photo capture mode
             photoCaptureMode.onPreferenceChangeListener = photoCaptureModePreferenceChangeListener
