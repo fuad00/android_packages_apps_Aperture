@@ -1260,7 +1260,11 @@ class CameraViewModel(application: Application) : ApertureViewModel(application)
         ).next(cameraConfiguration.camera.cameraFacing) ?: error("No camera available")
 
         val camera = (cameraConfiguration as? CameraConfiguration.Video)?.let {
-            getMetroidVideoCamera(cameraFacing, it.videoQuality, it.videoFrameRate)
+            getMetroidVideoCamera(
+                cameraFacing,
+                preferencesRepository.videoQuality.value,
+                preferencesRepository.videoFrameRate.value,
+            )
         }?.takeIf {
             it.supportsCameraMode(cameraConfiguration.cameraMode)
         } ?: when (cameraFacing) {
