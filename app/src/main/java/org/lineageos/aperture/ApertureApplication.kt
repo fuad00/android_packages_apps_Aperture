@@ -42,8 +42,9 @@ class ApertureApplication : Application(), CameraXConfig.Provider {
         )
 
         return CameraXConfig.Builder.fromConfig(defaultConfig)
-            .setUseCaseConfigFactoryProvider { context ->
-                val defaultFactory = defaultFactoryProvider.newInstance(context)
+            .setUseCaseConfigFactoryProvider { context, flag ->
+                // CameraX 1.7 adds a boolean to Provider.newInstance(); pass it through
+                val defaultFactory = defaultFactoryProvider.newInstance(context, flag)
 
                 UseCaseConfigFactory { captureType, captureMode ->
                     val useCaseConfig = defaultFactory.getConfig(captureType, captureMode)
